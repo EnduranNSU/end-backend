@@ -8,7 +8,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./bd.sql:/docker-entrypoint-initdb.d/bd.sql
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
     networks:
       - enduran
     healthcheck:
@@ -18,26 +18,12 @@ services:
       retries: 5
       start_period: 30s
 
-  user-info:
-    build:
-      context: ./user-info
-      dockerfile: Dockerfile
-    volumes:
-      - ./user-info/config/config.yaml:/app/config/config.yaml
-    ports:
-      - "8081:8080"
-    networks:
-      - enduran
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   training:
     build:
-      context: ./end-trainings
+      context: ./training
       dockerfile: Dockerfile
     volumes:
-      - ./end-trainings/config/config.yaml:/app/config/config.yaml
+      - ./training/config/config.yaml:/app/config/config.yaml
     ports:
       - "8080:8080"
     networks:
@@ -45,20 +31,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-
-  auth:
-    build:
-      context: ./end-auth
-      dockerfile: Dockerfile
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - enduran
-    volumes:
-      - ./end-auth/config/config.yaml:/app/config/config.yaml
-    ports:
-      - "8082:8082"
 
 networks:
   enduran:
