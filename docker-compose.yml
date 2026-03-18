@@ -18,6 +18,25 @@ services:
       retries: 5
       start_period: 30s
 
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    env_file:
+      - .env
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9091:9001"
+    networks:
+      - enduran
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   training:
     build:
       context: ./training
@@ -32,6 +51,27 @@ services:
       postgres:
         condition: service_healthy
 
+  exercise:
+    build:
+      context: ./exercise
+      dockerfile: Dockerfile
+    volumes:
+      - ./exercise/config/config.yaml:/app/config/config.yaml
+    ports:
+      - "8081:8080"
+    networks:
+      - enduran
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
 networks:
   enduran:
     driver: bridge
+
+volumes:
+  pg_data:
+  minio_data:
+  qdrant_storage:
