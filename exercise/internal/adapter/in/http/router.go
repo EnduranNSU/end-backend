@@ -27,6 +27,7 @@ func NewGinRouter(exerciseHandler *ExerciseHandler, authBaseURL string) *gin.Eng
 
 	// API группа с аутентификацией - ВАЖНО: используем /api/v1
 	api := r.Group("/api/v1")
+	// Создаем middleware с URL auth сервиса
 	authMW := NewAuthMiddleware(authBaseURL)
 	api.Use(authMW.Handle)
 

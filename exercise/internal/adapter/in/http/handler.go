@@ -9,6 +9,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Вспомогательные функции для получения данных пользователя из контекста
+func getUserID(c *gin.Context) (int, bool) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		return 0, false
+	}
+	id, ok := userID.(int)
+	return id, ok
+}
+
 type ExerciseHandler struct {
 	repo domain.ExerciseRepository
 }
@@ -27,10 +37,15 @@ func NewTrainingHandler(repo domain.ExerciseRepository) *ExerciseHandler {
 // @Failure 500 {object} map[string]interface{}
 // @Router /exercise [get]
 func (h *ExerciseHandler) GetExercises(c *gin.Context) {
-	_, ok := userIDFromContext(c)
+	// Получаем ID пользователя из контекста
+	userID, ok := getUserID(c)
 	if !ok {
+		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Error: "User not authenticated"})
 		return
 	}
+
+	// Можно использовать userID для фильтрации, если нужно
+	_ = userID
 
 	exercises, err := h.repo.GetExercises(c.Request.Context())
 	if err != nil {
@@ -53,10 +68,15 @@ func (h *ExerciseHandler) GetExercises(c *gin.Context) {
 // @Failure 500 {object} map[string]interface{}
 // @Router /exercise/{id} [get]
 func (h *ExerciseHandler) GetExerciseById(c *gin.Context) {
-	_, ok := userIDFromContext(c)
+	// Получаем ID пользователя из контекста
+	userID, ok := getUserID(c)
 	if !ok {
+		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Error: "User not authenticated"})
 		return
 	}
+
+	// Можно использовать userID для проверки прав доступа
+	_ = userID
 
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
