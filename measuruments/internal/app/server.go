@@ -9,17 +9,17 @@ import (
 	"time"
 
 	httpin "github.com/EnduranNSU/end-user-info/internal/adapter/in/http"
-	svcuserinfo "github.com/EnduranNSU/end-user-info/internal/domain"
+	"github.com/EnduranNSU/end-user-info/internal/domain"
 	"github.com/rs/zerolog/log"
 )
 
 type Server struct {
-	Svc         svcuserinfo.Service
+	Svc         domain.MeasurementRepository
 	Addr        string
 	AuthBaseURL string
 }
 
-func SetupServer(svc svcuserinfo.Service, addr, authBaseURL string) *Server {
+func SetupServer(svc domain.MeasurementRepository, addr, authBaseURL string) *Server {
 	return &Server{
 		Svc:         svc,
 		Addr:        addr,
@@ -28,7 +28,7 @@ func SetupServer(svc svcuserinfo.Service, addr, authBaseURL string) *Server {
 }
 
 func (s *Server) StartServer() error {
-	h := httpin.NewUserInfoHandler(s.Svc)
+	h := httpin.NewMeasurementHandler(s.Svc)
 	engine := httpin.NewGinRouter(h, s.AuthBaseURL)
 
 	srv := &http.Server{

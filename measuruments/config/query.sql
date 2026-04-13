@@ -1,16 +1,20 @@
--- name: CreateUserInfo :exec
-INSERT INTO user_info (weight, height, date, age, user_id)
-VALUES ($1, $2, $3, $4, $5);
+-- name: CreateMeasurement :one
+INSERT INTO measurements (
+    user_id,
+    type,
+    value,
+    date
+) VALUES (
+    $1, $2, $3, $4
+)
+RETURNING id, user_id, type, value, date;
 
--- name: GetLatestUserInfoByUserID :one
-SELECT id, weight, height, date, age, user_id
-FROM user_info 
+-- name: GetMeasurementsByUser :many
+SELECT id, user_id, type, value, date
+FROM measurements
 WHERE user_id = $1
-ORDER BY date DESC, id DESC
-LIMIT 1;
+ORDER BY date DESC;
 
--- name: GetAllUserInfoByUserID :many
-SELECT id, weight, height, date, age, user_id
-FROM user_info 
-WHERE user_id = $1
-ORDER BY date DESC, id DESC;
+-- name: DeleteMeasurementsByUser :exec
+DELETE FROM measurements
+WHERE user_id = $1;

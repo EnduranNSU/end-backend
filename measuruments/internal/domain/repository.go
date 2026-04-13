@@ -2,12 +2,10 @@ package domain
 
 import (
 	"context"
-
-	"github.com/google/uuid"
 )
 
-type UserInfoRepository interface {
-	CreateUserInfo(ctx context.Context, info *UserInfo) error
-	GetLatestUserInfoByUserID(ctx context.Context, userID uuid.UUID) (*UserInfo, error)
-	GetAllUserInfoByUserID(ctx context.Context, userID uuid.UUID) ([]*UserInfo, error)
+type MeasurementRepository interface {
+	CreateMeasurement(ctx context.Context, measurement *MeasurementCreate) (*MeasurementRead, error)
+	GetMeasurementsByUserID(ctx context.Context, userID int) ([]*MeasurementRead, error)
+	UpdateMeasurements(ctx context.Context, userID int, measurements []*MeasurementCreate) ([]*MeasurementRead, error)
 }

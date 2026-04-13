@@ -9,6 +9,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Вспомогательные функции для получения данных пользователя из контекста
+func getUserID(c *gin.Context) (int, bool) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		return 0, false
+	}
+	id, ok := userID.(int)
+	return id, ok
+}
+
 type TrainingHandler struct {
 	repo domain.TrainingRepository
 }
@@ -31,12 +41,12 @@ func NewTrainingHandler(repo domain.TrainingRepository) *TrainingHandler {
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /training/planned [get]
 func (h *TrainingHandler) GetPlannedTrainings(c *gin.Context) {
-	userID, ok := userIDFromContext(c)
+	userID, ok := getUserID(c)
 	if !ok {
 		return
 	}
 
-	trainings, err := h.repo.GetPlannedTrainings(c.Request.Context(), int(userID.ID()))
+	trainings, err := h.repo.GetPlannedTrainings(c.Request.Context(), int(userID))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "failed to get planned trainings"})
 		return
@@ -64,7 +74,7 @@ func (h *TrainingHandler) GetPlannedTraining(c *gin.Context) {
 		return
 	}
 
-	userID, ok := userIDFromContext(c)
+	userID, ok := getUserID(c)
 	if !ok {
 		return
 	}
@@ -81,7 +91,7 @@ func (h *TrainingHandler) GetPlannedTraining(c *gin.Context) {
 	}
 
 	// Проверяем, что тренировка принадлежит пользователю
-	if training.UserID != int(userID.ID()) {
+	if training.UserID != int(userID) {
 		c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "Planned training not found"})
 		return
 	}
@@ -108,13 +118,13 @@ func (h *TrainingHandler) CreatePlannedTraining(c *gin.Context) {
 		return
 	}
 
-	userID, ok := userIDFromContext(c)
+	userID, ok := getUserID(c)
 	if !ok {
 		return
 	}
 
 	params := domain.CreatePlannedTrainingParams{
-		UserID:   int(userID.ID()),
+		UserID:   int(userID),
 		Weekdays: req.Weekdays,
 		Training: req.Training,
 	}
@@ -151,7 +161,7 @@ func (h *TrainingHandler) DeletePlannedTraining(c *gin.Context) {
 		return
 	}
 
-	userID, ok := userIDFromContext(c)
+	userID, ok := getUserID(c)
 	if !ok {
 		return
 	}
@@ -163,7 +173,7 @@ func (h *TrainingHandler) DeletePlannedTraining(c *gin.Context) {
 		return
 	}
 
-	if training == nil || training.UserID != int(userID.ID()) {
+	if training == nil || training.UserID != int(userID) {
 		c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "Planned training not found"})
 		return
 	}
@@ -204,7 +214,7 @@ func (h *TrainingHandler) UpdatePlannedTraining(c *gin.Context) {
 		return
 	}
 
-	userID, ok := userIDFromContext(c)
+	userID, ok := getUserID(c)
 	if !ok {
 		return
 	}
@@ -216,13 +226,13 @@ func (h *TrainingHandler) UpdatePlannedTraining(c *gin.Context) {
 		return
 	}
 
-	if existing == nil || existing.UserID != int(userID.ID()) {
+	if existing == nil || existing.UserID != int(userID) {
 		c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "Planned training not found"})
 		return
 	}
 
 	params := domain.CreatePlannedTrainingParams{
-		UserID:   int(userID.ID()),
+		UserID:   int(userID),
 		Weekdays: req.Weekdays,
 		Training: req.Training,
 	}
@@ -253,12 +263,12 @@ func (h *TrainingHandler) UpdatePlannedTraining(c *gin.Context) {
 // @Failure      500  {object}  dto.ErrorResponse
 // @Router       /training/user_performed [get]
 func (h *TrainingHandler) GetUserPerformedTrainings(c *gin.Context) {
-	userID, ok := userIDFromContext(c)
+	userID, ok := getUserID(c)
 	if !ok {
 		return
 	}
 
-	trainings, err := h.repo.GetUserPerformedTrainings(c.Request.Context(), int(userID.ID()))
+	trainings, err := h.repo.GetUserPerformedTrainings(c.Request.Context(), int(userID))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "failed to get performed trainings"})
 		return
@@ -286,7 +296,7 @@ func (h *TrainingHandler) GetUserPerformedTraining(c *gin.Context) {
 		return
 	}
 
-	userID, ok := userIDFromContext(c)
+	userID, ok := getUserID(c)
 	if !ok {
 		return
 	}
@@ -303,7 +313,7 @@ func (h *TrainingHandler) GetUserPerformedTraining(c *gin.Context) {
 	}
 
 	// Проверяем, что тренировка принадлежит пользователю
-	if training.UserID != int(userID.ID()) {
+	if training.UserID != int(userID) {
 		c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "Performed training not found"})
 		return
 	}
@@ -330,13 +340,13 @@ func (h *TrainingHandler) CreateUserPerformedTraining(c *gin.Context) {
 		return
 	}
 
-	userID, ok := userIDFromContext(c)
+	userID, ok := getUserID(c)
 	if !ok {
 		return
 	}
 
 	params := domain.CreateUserPerformedTrainingParams{
-		UserID:   int(userID.ID()),
+		UserID:   int(userID),
 		Date:     req.Date,
 		Training: req.Training,
 	}
@@ -373,7 +383,7 @@ func (h *TrainingHandler) DeleteUserPerformedTraining(c *gin.Context) {
 		return
 	}
 
-	userID, ok := userIDFromContext(c)
+	userID, ok := getUserID(c)
 	if !ok {
 		return
 	}
@@ -385,7 +395,7 @@ func (h *TrainingHandler) DeleteUserPerformedTraining(c *gin.Context) {
 		return
 	}
 
-	if training == nil || training.UserID != int(userID.ID()) {
+	if training == nil || training.UserID != int(userID) {
 		c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "Performed training not found"})
 		return
 	}
@@ -426,7 +436,7 @@ func (h *TrainingHandler) UpdateUserPerformedTraining(c *gin.Context) {
 		return
 	}
 
-	userID, ok := userIDFromContext(c)
+	userID, ok := getUserID(c)
 	if !ok {
 		return
 	}
@@ -438,13 +448,13 @@ func (h *TrainingHandler) UpdateUserPerformedTraining(c *gin.Context) {
 		return
 	}
 
-	if existing == nil || existing.UserID != int(userID.ID()) {
+	if existing == nil || existing.UserID != int(userID) {
 		c.JSON(http.StatusNotFound, dto.ErrorResponse{Error: "Performed training not found"})
 		return
 	}
 
 	params := domain.CreateUserPerformedTrainingParams{
-		UserID:   int(userID.ID()),
+		UserID:   int(userID),
 		Date:     req.Date,
 		Training: req.Training,
 	}

@@ -13,12 +13,12 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-// NewGinRouter создает новый Gin router
+// NewGinRouter создает новый Gin router для измерений
 // @title Enduran User Info API
 // @version 1.0
 // @description Сервис информации о пользователе (вес, рост, возраст и т.д.)
 // @BasePath /api/v1
-func NewGinRouter(h *UserInfoHandler, authBaseURL string) *gin.Engine {
+func NewGinRouter(h *MeasurementHandler, authBaseURL string) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
 
@@ -31,11 +31,10 @@ func NewGinRouter(h *UserInfoHandler, authBaseURL string) *gin.Engine {
 	api := r.Group("/api/v1")
 	api.Use(authMW.Handle)
 	{
-		api.POST("/user-info", h.Create)
-
-		api.GET("/user-info/latest", h.GetLatest)
-
-		api.GET("/user-info", h.List)
+		// Роуты для измерений
+		api.GET("/measurements", h.GetMeasurements)
+		api.POST("/measurements/create", h.CreateMeasurement)
+		api.POST("/measurements/update", h.UpdateMeasurements)
 	}
 
 	return r

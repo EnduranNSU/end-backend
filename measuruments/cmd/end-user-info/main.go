@@ -9,7 +9,6 @@ import (
 	"github.com/EnduranNSU/end-user-info/internal/adapter/out/postgres"
 	"github.com/EnduranNSU/end-user-info/internal/app"
 	"github.com/EnduranNSU/end-user-info/internal/logging"
-	svcuserinfo "github.com/EnduranNSU/end-user-info/internal/service"
 	_ "github.com/joho/godotenv/autoload"
 	_ "github.com/lib/pq"
 	"github.com/num30/config"
@@ -71,10 +70,9 @@ func main() {
 	}
 
 	// Init repo - теперь без возврата ошибки
-	repo := postgres.NewUserInfoRepository(db)
-	svc := svcuserinfo.New(repo)
+	repo := postgres.NewMeasurementRepository(db)
 
-	srv := app.SetupServer(svc, cfg.Http.Addr, cfg.Auth.BaseURL)
+	srv := app.SetupServer(repo, cfg.Http.Addr, cfg.Auth.BaseURL)
 
 	if err := srv.StartServer(); err != nil {
 		log.Fatal().Err(err).Msg("http server stopped")

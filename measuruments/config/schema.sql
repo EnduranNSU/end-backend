@@ -1,12 +1,12 @@
-CREATE TABLE user_info (
-    id BIGSERIAL PRIMARY KEY NOT NULL,
-    weight DECIMAL(5,2) NOT NULL,
-    height INTEGER NOT NULL,
-    date DATE NOT NULL,
-    age INTEGER NOT NULL,
-    user_id UUID NOT NULL
+-- Создание таблицы measurements
+CREATE TABLE measurements (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    type VARCHAR NOT NULL,
+    value INTEGER NOT NULL,
+    date VARCHAR NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
-
-CREATE INDEX idx_user_info_user_id ON user_info(user_id);
-CREATE INDEX idx_user_info_user_id_date ON user_info(user_id, date DESC);
+-- Создание индекса для measurements
+CREATE INDEX ix_measurements_user_id ON measurements (user_id);

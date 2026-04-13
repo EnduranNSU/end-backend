@@ -24,7 +24,6 @@ func NewAuthMiddleware(authBase string) *AuthMiddleware {
 	}
 }
 
-// ValidateResponse должен совпадать с ответом auth сервиса
 type ValidateResponse struct {
 	Valid bool `json:"valid"`
 	User  struct {
@@ -62,9 +61,13 @@ func (m *AuthMiddleware) Handle(c *gin.Context) {
 		return
 	}
 
-	log.Debug().Msgf("Validating token: %s...", token[:20])
+	// Безопасное логирование токена
+	tokenPreview := token
+	if len(token) > 20 {
+		tokenPreview = token[:20] + "..."
+	}
+	log.Debug().Msgf("Validating token: %s", tokenPreview)
 
-	// Создаем запрос к auth сервису
 	validateURL := m.authBase + "/api/v1/validate"
 	log.Debug().Msgf("Calling auth service at: %s", validateURL)
 
@@ -76,7 +79,6 @@ func (m *AuthMiddleware) Handle(c *gin.Context) {
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 
-	// Отправляем запрос
 	resp, err := m.client.Do(req)
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to call auth service at %s", validateURL)
@@ -87,30 +89,25 @@ func (m *AuthMiddleware) Handle(c *gin.Context) {
 
 	log.Debug().Msgf("Auth service response status: %d", resp.StatusCode)
 
-	// Проверяем статус ответа
 	if resp.StatusCode != http.StatusOK {
 		log.Warn().Msgf("Auth service returned non-200 status: %d", resp.StatusCode)
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid_token"})
 		return
 	}
 
-	// Читаем ответ
 	var validateResp ValidateResponse
 	if err := json.NewDecoder(resp.Body).Decode(&validateResp); err != nil {
 		log.Error().Err(err).Msg("Failed to decode auth response")
-		// Выводим сырой ответ для отладки
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid_auth_response"})
 		return
 	}
 
-	// Проверяем валидность
 	if !validateResp.Valid {
 		log.Warn().Msg("Token invalid")
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid_token"})
 		return
 	}
 
-	// Сохраняем информацию о пользователе
 	c.Set("userID", validateResp.User.ID)
 	c.Set("userEmail", validateResp.User.Email)
 	c.Set("userName", validateResp.User.Name)
@@ -120,7 +117,6 @@ func (m *AuthMiddleware) Handle(c *gin.Context) {
 	c.Next()
 }
 
-// Helper functions
 func GetUserID(c *gin.Context) (int, bool) {
 	userID, exists := c.Get("userID")
 	if !exists {

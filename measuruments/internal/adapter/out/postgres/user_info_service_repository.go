@@ -5,122 +5,182 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/google/uuid"
-	"github.com/shopspring/decimal"
-
 	"github.com/EnduranNSU/end-user-info/internal/adapter/out/postgres/gen"
 	"github.com/EnduranNSU/end-user-info/internal/domain"
 	"github.com/EnduranNSU/end-user-info/internal/logging"
 )
 
-type UserInfoRepositoryImpl struct {
+type MeasurementRepositoryImpl struct {
 	db      *sql.DB
 	queries *gen.Queries
 }
 
-func NewUserInfoRepository(db *sql.DB) domain.UserInfoRepository {
-	return &UserInfoRepositoryImpl{
+func NewMeasurementRepository(db *sql.DB) domain.MeasurementRepository {
+	return &MeasurementRepositoryImpl{
 		db:      db,
 		queries: gen.New(db),
 	}
 }
 
-func (r *UserInfoRepositoryImpl) CreateUserInfo(ctx context.Context, info *domain.UserInfo) error {
-	params := gen.CreateUserInfoParams{
-		Weight: info.Weight.String(),
-		Height: info.Height,
-		Date:   info.Date,
-		Age:    info.Age,
-		UserID: info.UserID,
+// CreateMeasurement создает новое измерение
+func (r *MeasurementRepositoryImpl) CreateMeasurement(ctx context.Context, measurement *domain.MeasurementCreate) (*domain.MeasurementRead, error) {
+	params := gen.CreateMeasurementParams{
+		UserID: int32(measurement.UserID),
+		Type:   measurement.Type,
+		Value:  int32(measurement.Value),
+		Date:   measurement.Date,
 	}
 
-	err := r.queries.CreateUserInfo(ctx, params)
-	if err != nil {
-		jsonData := logging.MarshalLogData(info)
-		logging.Error(err, "CreateUserInfo", jsonData, "failed to create user info")
-		return err
-	}
-
-	jsonData := logging.MarshalLogData(info)
-	logging.Debug("CreateUserInfo", jsonData, "successfully created user info")
-
-	return nil
-}
-
-func (r *UserInfoRepositoryImpl) GetLatestUserInfoByUserID(ctx context.Context, userID uuid.UUID) (*domain.UserInfo, error) {
-	info, err := r.queries.GetLatestUserInfoByUserID(ctx, userID)
-	if err == sql.ErrNoRows {
-		jsonData := logging.MarshalLogData(map[string]interface{}{
-			"user_id": userID.String(),
-		})
-		logging.Warn("GetLatestUserInfoByUserID", jsonData, "user info not found")
-		return nil, fmt.Errorf("user_info not found for user_id: %s", userID)
-	}
-
+	dbMeasurement, err := r.queries.CreateMeasurement(ctx, params)
 	if err != nil {
 		jsonData := logging.MarshalLogData(map[string]interface{}{
-			"user_id": userID.String(),
+			"user_id": measurement.UserID,
+			"type":    measurement.Type,
+			"value":   measurement.Value,
+			"date":    measurement.Date,
 		})
-		logging.Error(err, "GetLatestUserInfoByUserID", jsonData, "failed to get latest user info")
+		logging.Error(err, "CreateMeasurement", jsonData, "failed to create measurement")
 		return nil, err
 	}
 
-	weight, _ := decimal.NewFromString(info.Weight)
-	domainInfo := &domain.UserInfo{
-		ID:     info.ID,
-		Weight: weight,
-		Height: info.Height,
-		Date:   info.Date,
-		Age:    info.Age,
-		UserID: info.UserID,
+	result := &domain.MeasurementRead{
+		MeasurementBase: domain.MeasurementBase{
+			Type:  dbMeasurement.Type,
+			Value: int(dbMeasurement.Value),
+			Date:  dbMeasurement.Date,
+		},
+		ID: int(dbMeasurement.ID),
 	}
 
 	jsonData := logging.MarshalLogData(map[string]interface{}{
-		"user_id": userID.String(),
-		"info_id": info.ID,
-		"date":    info.Date,
+		"measurement_id": result.ID,
+		"user_id":        measurement.UserID,
+		"type":           measurement.Type,
 	})
-	logging.Debug("GetLatestUserInfoByUserID", jsonData, "successfully retrieved latest user info")
+	logging.Debug("CreateMeasurement", jsonData, "successfully created measurement")
 
-	return domainInfo, nil
+	return result, nil
 }
 
-func (r *UserInfoRepositoryImpl) GetAllUserInfoByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.UserInfo, error) {
-	infos, err := r.queries.GetAllUserInfoByUserID(ctx, userID)
+// GetMeasurementsByUserID получает все измерения пользователя
+func (r *MeasurementRepositoryImpl) GetMeasurementsByUserID(ctx context.Context, userID int) ([]*domain.MeasurementRead, error) {
+	dbMeasurements, err := r.queries.GetMeasurementsByUser(ctx, int32(userID))
 	if err != nil {
 		jsonData := logging.MarshalLogData(map[string]interface{}{
-			"user_id": userID.String(),
+			"user_id": userID,
 		})
-		logging.Error(err, "GetAllUserInfoByUserID", jsonData, "failed to query user info")
+		logging.Error(err, "GetMeasurementsByUserID", jsonData, "failed to query measurements")
 		return nil, err
 	}
 
-	if len(infos) == 0 {
+	if len(dbMeasurements) == 0 {
 		jsonData := logging.MarshalLogData(map[string]interface{}{
-			"user_id": userID.String(),
+			"user_id": userID,
 		})
-		logging.Warn("GetAllUserInfoByUserID", jsonData, "no user info records found")
-		return nil, fmt.Errorf("no user_info records found for user_id: %s", userID)
+		logging.Warn("GetMeasurementsByUserID", jsonData, "no measurements found")
+		return []*domain.MeasurementRead{}, nil // Возвращаем пустой слайс вместо ошибки
 	}
 
-	domainInfos := make([]*domain.UserInfo, len(infos))
-	for i, info := range infos {
-		weight, _ := decimal.NewFromString(info.Weight)
-		domainInfos[i] = &domain.UserInfo{
-			ID:     info.ID,
-			Weight: weight,
-			Height: info.Height,
-			Date:   info.Date,
-			Age:    info.Age,
-			UserID: info.UserID,
+	measurements := make([]*domain.MeasurementRead, len(dbMeasurements))
+	for i, m := range dbMeasurements {
+		measurements[i] = &domain.MeasurementRead{
+			MeasurementBase: domain.MeasurementBase{
+				Type:  m.Type,
+				Value: int(m.Value),
+				Date:  m.Date,
+			},
+			ID: int(m.ID),
 		}
 	}
 
 	jsonData := logging.MarshalLogData(map[string]interface{}{
-		"user_id":       userID.String(),
-		"records_count": len(domainInfos),
+		"user_id":        userID,
+		"records_count":  len(measurements),
 	})
-	logging.Debug("GetAllUserInfoByUserID", jsonData, "successfully retrieved user info records")
+	logging.Debug("GetMeasurementsByUserID", jsonData, "successfully retrieved measurements")
 
-	return domainInfos, nil
+	return measurements, nil
+}
+
+// UpdateMeasurements обновляет все измерения пользователя (удаляет старые и создает новые)
+func (r *MeasurementRepositoryImpl) UpdateMeasurements(ctx context.Context, userID int, measurements []*domain.MeasurementCreate) ([]*domain.MeasurementRead, error) {
+	// Начинаем транзакцию
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		jsonData := logging.MarshalLogData(map[string]interface{}{
+			"user_id": userID,
+		})
+		logging.Error(err, "UpdateMeasurements", jsonData, "failed to begin transaction")
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Создаем queries с транзакцией
+	qtx := r.queries.WithTx(tx)
+
+	// Удаляем все старые измерения пользователя
+	err = qtx.DeleteMeasurementsByUser(ctx, int32(userID))
+	if err != nil {
+		jsonData := logging.MarshalLogData(map[string]interface{}{
+			"user_id": userID,
+		})
+		logging.Error(err, "UpdateMeasurements", jsonData, "failed to delete measurements")
+		return nil, fmt.Errorf("failed to delete measurements: %w", err)
+	}
+
+	logging.Debug("UpdateMeasurements", 
+		logging.MarshalLogData(map[string]interface{}{"user_id": userID}), 
+		"deleted old measurements")
+
+	// Создаем новые измерения
+	createdMeasurements := make([]*domain.MeasurementRead, 0, len(measurements))
+	for i, m := range measurements {
+		params := gen.CreateMeasurementParams{
+			UserID: int32(userID), // Используем переданный userID для безопасности
+			Type:   m.Type,
+			Value:  int32(m.Value),
+			Date:   m.Date,
+		}
+
+		dbMeasurement, err := qtx.CreateMeasurement(ctx, params)
+		if err != nil {
+			jsonData := logging.MarshalLogData(map[string]interface{}{
+				"user_id":   userID,
+				"type":      m.Type,
+				"index":     i,
+			})
+			logging.Error(err, "UpdateMeasurements", jsonData, "failed to create measurement")
+			return nil, fmt.Errorf("failed to create measurement at index %d: %w", i, err)
+		}
+
+		createdMeasurements = append(createdMeasurements, &domain.MeasurementRead{
+			MeasurementBase: domain.MeasurementBase{
+				Type:  dbMeasurement.Type,
+				Value: int(dbMeasurement.Value),
+				Date:  dbMeasurement.Date,
+			},
+			ID: int(dbMeasurement.ID),
+		})
+	}
+
+	// Коммитим транзакцию
+	if err = tx.Commit(); err != nil {
+		jsonData := logging.MarshalLogData(map[string]interface{}{
+			"user_id": userID,
+		})
+		logging.Error(err, "UpdateMeasurements", jsonData, "failed to commit transaction")
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	jsonData := logging.MarshalLogData(map[string]interface{}{
+		"user_id":       userID,
+		"records_count": len(createdMeasurements),
+	})
+	logging.Debug("UpdateMeasurements", jsonData, "successfully updated measurements")
+
+	return createdMeasurements, nil
 }

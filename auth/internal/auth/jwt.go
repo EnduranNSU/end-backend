@@ -50,43 +50,44 @@ func (s *JWTService) CreateAccessToken(email string) (string, error) {
 }
 
 func (s *JWTService) ValidateToken(tokenString string) (string, error) {
-	log.Debug().Msgf("Validating token: %s...", tokenString[:50])
+    // Безопасное логирование токена
+    tokenPreview := tokenString
+    if len(tokenString) > 20 {
+        tokenPreview = tokenString[:20] + "..."
+    }
+    log.Debug().Msgf("Validating token: %s", tokenPreview)
+    
+    token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+        if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+            return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+        }
+        return []byte(s.config.SecretKey), nil
+    })
 
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(s.config.SecretKey), nil
-	})
+    if err != nil {
+        log.Error().Err(err).Msg("Failed to parse token")
+        return "", fmt.Errorf("failed to parse token: %w", err)
+    }
 
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to parse token")
-		return "", fmt.Errorf("failed to parse token: %w", err)
-	}
+    if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+        email, ok := claims["sub"].(string)
+        if !ok {
+            return "", fmt.Errorf("invalid token claims")
+        }
+        
+        if exp, ok := claims["exp"]; ok {
+            expTime := time.Unix(int64(exp.(float64)), 0)
+            log.Debug().Msgf("Token expires at: %v, current time: %v", expTime, time.Now())
+            if expTime.Before(time.Now()) {
+                log.Error().Msgf("Token expired at: %v", expTime)
+                return "", fmt.Errorf("token expired")
+            }
+        }
+        
+        return email, nil
+    }
 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		email, ok := claims["sub"].(string)
-		if !ok {
-			log.Error().Msg("Invalid token claims: missing 'sub' field")
-			return "", fmt.Errorf("invalid token claims")
-		}
-
-		// Проверяем expiration
-		if exp, ok := claims["exp"]; ok {
-			expTime := time.Unix(int64(exp.(float64)), 0)
-			log.Debug().Msgf("Token expires at: %v, current time: %v", expTime, time.Now())
-			if expTime.Before(time.Now()) {
-				log.Error().Msgf("Token expired at: %v", expTime)
-				return "", fmt.Errorf("token expired")
-			}
-		}
-
-		log.Info().Msgf("Token validated successfully for email: %s", email)
-		return email, nil
-	}
-
-	log.Error().Msg("Invalid token claims")
-	return "", fmt.Errorf("invalid token")
+    return "", fmt.Errorf("invalid token")
 }
 
 func maskSecret(secret string) string {
